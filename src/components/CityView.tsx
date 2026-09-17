@@ -6,7 +6,7 @@ const PLACES = [
     id: "shop" as const,
     title: "Магазин",
     desc: "Зелья, доспехи и клинки. Торговец скупает камни чудовищ и трофеи.",
-    img: "/img/shop.jpg",
+    img: "https://feybloodmoon.github.io/img/shop.jpg",
     icon: Store,
     tag: "торговля",
   },
@@ -14,7 +14,7 @@ const PLACES = [
     id: "guild" as const,
     title: "Гильдия",
     desc: "Контракты от F до SSS и наёмники, готовые уйти в лес вместо вас.",
-    img: "/img/guild.jpg",
+    img: "https://feybloodmoon.github.io/img/guild.jpg",
     icon: Landmark,
     tag: "контракты",
   },
@@ -22,7 +22,7 @@ const PLACES = [
     id: "forest" as const,
     title: "Лес",
     desc: "Пять троп — от Тихой рощи до Пиков драконов. Охота, камни и слава.",
-    img: "/img/loc-grove.jpg",
+    img: "https://feybloodmoon.github.io/img/loc-grove.jpg",
     icon: Trees,
     tag: "поход",
   },
@@ -42,7 +42,7 @@ export function CityView() {
 
   return (
     <div className="vignette relative -m-4 min-h-[calc(100vh-120px)] overflow-hidden rounded-2xl sm:-m-6">
-      <img src="/img/city.jpg" alt="Город" className="anim-fog absolute inset-0 h-full w-full scale-110 object-cover" />
+      <img src="https://feybloodmoon.github.io/img/city.jpg" alt="Город" className="anim-fog absolute inset-0 h-full w-full scale-110 object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/60 via-ink-950/35 to-ink-950/95" />
 
       <div className="relative z-10 flex min-h-[calc(100vh-120px)] flex-col justify-between p-5 sm:p-8">
