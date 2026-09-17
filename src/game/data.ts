@@ -271,7 +271,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 0,
     minLvl: 1,
     maxLvl: 3,
-    img: "/img/loc-grove.jpg",
+    img: "./img/loc-grove.jpg",
     accent: "#7fd68a",
     monsters: [
       {
@@ -319,7 +319,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 1,
     minLvl: 4,
     maxLvl: 7,
-    img: "/img/loc-swamp.jpg",
+    img: "./img/loc-swamp.jpg",
     accent: "#86b561",
     monsters: [
       {
@@ -367,7 +367,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 2,
     minLvl: 8,
     maxLvl: 12,
-    img: "/img/loc-hills.jpg",
+    img: "./img/loc-hills.jpg",
     accent: "#d9b36c",
     monsters: [
       {
@@ -415,7 +415,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 3,
     minLvl: 13,
     maxLvl: 18,
-    img: "/img/loc-thicket.jpg",
+    img: "./img/loc-thicket.jpg",
     accent: "#a78bfa",
     monsters: [
       {
@@ -463,7 +463,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 4,
     minLvl: 19,
     maxLvl: 25,
-    img: "/img/loc-peaks.jpg",
+    img: "./img/loc-peaks.jpg",
     accent: "#fb923c",
     monsters: [
       {
