@@ -100,7 +100,7 @@ export function GuildView() {
 
   return (
     <div className="vignette relative -m-4 min-h-[calc(100vh-120px)] overflow-hidden rounded-2xl sm:-m-6">
-      <img src="https://feybloodmoon.github.io/img/guild.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img src="/img/guild.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/85 via-ink-950/80 to-ink-950/95" />
 
       <div className="relative z-10 p-5 sm:p-8">

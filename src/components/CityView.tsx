@@ -42,7 +42,7 @@ export function CityView() {
 
   return (
     <div className="vignette relative -m-4 min-h-[calc(100vh-120px)] overflow-hidden rounded-2xl sm:-m-6">
-      <img src="https://feybloodmoon.github.io/img/city.jpg" alt="Город" className="anim-fog absolute inset-0 h-full w-full scale-110 object-cover" />
+      <img src="/img/city.jpg" alt="Город" className="anim-fog absolute inset-0 h-full w-full scale-110 object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/60 via-ink-950/35 to-ink-950/95" />
 
       <div className="relative z-10 flex min-h-[calc(100vh-120px)] flex-col justify-between p-5 sm:p-8">
