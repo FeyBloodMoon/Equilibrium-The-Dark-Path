@@ -105,7 +105,6 @@ function GearTab({ inShop }: { inShop: boolean }) {
 function PotionsTab() {
   const potions = useGame((s) => s.inventory.potions);
   const usePotion = useGame((s) => s.usePotion);
-  const inCombat = useGame((s) => !!s.combat && s.combat.phase !== "result");
 
   const any = POTION_ORDER.some((id) => potions[id] > 0);
   if (!any) return <Empty icon={FlaskConical} text="Зелий нет. Алхимик в магазине всегда рад монетам." />;
@@ -125,9 +124,8 @@ function PotionsTab() {
             </div>
             <button
               onClick={() => usePotion(id)}
-              disabled={!inCombat}
               className="btn btn-ghost rounded-md px-2.5 py-1 text-[10px]"
-              title={inCombat ? "Использовать" : "Можно пить только в бою"}
+              title="Выпить — работает и в бою, и в городе"
             >
               Выпить
             </button>

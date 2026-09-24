@@ -14,7 +14,6 @@ import {
   Swords,
   UserPlus,
   Users,
-  X,
   XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -23,6 +22,8 @@ import {
   BOARD_MANUAL_MS,
   GRADE_COLOR,
   LOCATIONS,
+  MERCS_AUTO_MS,
+  MERCS_MANUAL_MS,
   MERC_DURATION_MIN,
 } from "../game/data";
 import { mercCostFor } from "../game/engine";
@@ -30,6 +31,7 @@ import { useGame } from "../game/store";
 import type { MercCandidate, Quest, StoneGrade } from "../game/types";
 import { cn } from "../utils/cn";
 import { Empty } from "./InventoryPanel";
+import { Modal, ModalBody, ModalFooter, ModalHeader } from "./Modal";
 import { GradeBadge, Gold, SectionTitle } from "./ui";
 
 function useNow(step = 1000) {
@@ -69,22 +71,31 @@ export function GuildView() {
   const inventory = useGame((s) => s.inventory);
   const boardLastChange = useGame((s) => s.boardLastChange);
   const boardLastManual = useGame((s) => s.boardLastManual);
+  const mercsTick = useGame((s) => s.mercsTick);
+  const mercsLastChange = useGame((s) => s.mercsLastChange);
+  const mercsLastManual = useGame((s) => s.mercsLastManual);
   const [hiring, setHiring] = useState<MercCandidate | null>(null);
 
   useEffect(() => {
-    const t = setInterval(boardTick, 5000);
+    const t = setInterval(() => {
+      boardTick();
+      mercsTick();
+    }, 2000);
     boardTick();
+    mercsTick();
     return () => clearInterval(t);
-  }, [boardTick]);
+  }, [boardTick, mercsTick]);
 
   useEffect(() => {
-    if (candidates.length === 0) rerollMercs();
+    if (candidates.length === 0) rerollMercs(true);
   }, [candidates.length, rerollMercs]);
 
   const board = quests.filter((q) => q.status === "board");
   const active = quests.filter((q) => q.status === "active");
   const manualLeft = BOARD_MANUAL_MS - (now - boardLastManual);
   const autoLeft = BOARD_AUTO_MS - (now - boardLastChange);
+  const mercsManualLeft = MERCS_MANUAL_MS - (now - mercsLastManual);
+  const mercsAutoLeft = MERCS_AUTO_MS - (now - mercsLastChange);
 
   const questReady = (q: Quest) => {
     if (q.kind === "stones") return (inventory.stones[q.stoneGrade!] ?? 0) >= q.need;
@@ -100,7 +111,7 @@ export function GuildView() {
 
   return (
     <div className="vignette relative -m-4 min-h-[calc(100vh-120px)] overflow-hidden rounded-2xl sm:-m-6">
-      <img src="./img/guild.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img src="/img/guild.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/85 via-ink-950/80 to-ink-950/95" />
 
       <div className="relative z-10 p-5 sm:p-8">
@@ -124,10 +135,25 @@ export function GuildView() {
                   <Users className="h-4 w-4 text-gold-400" />
                   Наёмники · {mercs.length}/3
                 </div>
-                <button onClick={rerollMercs} className="btn btn-ghost rounded-md px-2.5 py-1 text-[10px]">
-                  <Dices className="h-3 w-3" />
-                  Другие кандидаты
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono2 text-[10px] text-white/35">{fmtLeft(mercsAutoLeft)}</span>
+                  <button
+                    onClick={() => rerollMercs(false)}
+                    disabled={mercsManualLeft > 0}
+                    title={
+                      mercsManualLeft > 0
+                        ? `Новые клинки придут через ${fmtLeft(mercsManualLeft)}`
+                        : "Позвать других кандидатов"
+                    }
+                    className={cn(
+                      "btn h-7 rounded-md px-2.5 text-[10px]",
+                      mercsManualLeft > 0 ? "btn-ghost" : "btn-gold"
+                    )}
+                  >
+                    {mercsManualLeft > 0 ? <Lock className="h-3 w-3" /> : <Dices className="h-3 w-3" />}
+                    {mercsManualLeft > 0 ? fmtLeft(mercsManualLeft) : "Другие"}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -430,22 +456,23 @@ function HireModal({ candidate, onClose }: { candidate: MercCandidate; onClose: 
   const allowed = candidate.level >= loc.minLvl;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
-      <div className="panel anim-pop w-full max-w-lg overflow-hidden">
-        <div className="flex items-center justify-between border-b border-white/[0.08] px-5 py-3">
-          <div>
-            <h3 className="font-display text-sm font-bold text-gold-300">Контракт наёмника</h3>
-            <p className="text-[11px] text-white/45">
-              {candidate.name} · ур. {candidate.level} · надёжность{" "}
-              <span style={{ color: reliabilityColor(candidate.reliability) }}>{candidate.reliability}%</span>
-            </p>
-          </div>
-          <button onClick={onClose} className="btn btn-ghost h-8 w-8 rounded-lg p-0">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="p-4">
+    <Modal onClose={onClose} width="max-w-lg">
+      <ModalHeader
+        title="Контракт наёмника"
+        onClose={onClose}
+        icon={
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-gold-500/30 bg-gold-500/10">
+            <UserPlus className="h-4.5 w-4.5 text-gold-400" />
+          </span>
+        }
+        subtitle={
+          <>
+            {candidate.name} · ур. {candidate.level} · надёжность{" "}
+            <span style={{ color: reliabilityColor(candidate.reliability) }}>{candidate.reliability}%</span>
+          </>
+        }
+      />
+      <ModalBody>
           <div className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
             Куда отправить
           </div>
@@ -491,9 +518,9 @@ function HireModal({ candidate, onClose }: { candidate: MercCandidate; onClose: 
             Риск провала — <b className="text-blood-400">{100 - candidate.reliability}%</b>. При провале
             наёмник вернётся с пустыми руками, а золото за контракт не возвращается.
           </div>
-        </div>
+      </ModalBody>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/[0.08] px-4 py-3">
+      <ModalFooter>
           <Gold amount={cost} className="text-sm" />
           <div className="flex gap-2">
             <button onClick={onClose} className="btn btn-ghost px-3 py-2 text-[11px]">
@@ -511,9 +538,8 @@ function HireModal({ candidate, onClose }: { candidate: MercCandidate; onClose: 
               Отправить на {MERC_DURATION_MIN[loc.tier]} мин
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+      </ModalFooter>
+    </Modal>
   );
 }
 

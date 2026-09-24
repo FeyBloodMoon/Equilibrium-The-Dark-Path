@@ -23,7 +23,7 @@ export function IntroView() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-y-auto py-8">
-      <img src="./img/city.jpg" alt="" className="anim-fog fixed inset-0 h-full w-full scale-105 object-cover opacity-45" />
+      <img src="/img/city.jpg" alt="" className="anim-fog fixed inset-0 h-full w-full scale-105 object-cover opacity-45" />
       <div className="fixed inset-0 bg-gradient-to-b from-ink-950/80 via-ink-950/65 to-ink-950" />
 
       <div className="relative z-10 mx-auto w-full max-w-5xl px-4">

@@ -3,15 +3,24 @@ import { persist } from "zustand/middleware";
 import {
   BOARD_AUTO_MS,
   BOARD_MANUAL_MS,
+  CHURCH_BASE_FEE,
+  CHURCH_MAXHP_FACTOR,
+  CHURCH_PER_HP,
   GRADES,
   LOCATIONS,
+  MERCS_AUTO_MS,
+  MERCS_MANUAL_MS,
   POTIONS,
+  REGEN_PER_SEC_DIV,
+  STOCK_AUTO_MS,
+  STOCK_MANUAL_MS,
   STONE_GRADES,
   STONE_VALUE,
 } from "./data";
 import { CLASSES, getClass } from "./classes";
 import type { ClassId, ClassSpell, Gender } from "./classes";
 import {
+  baseStats,
   clamp,
   emptyInventory,
   genItem,
@@ -63,6 +72,11 @@ interface GameState {
   mercCandidates: MercCandidate[];
   boardLastChange: number;
   boardLastManual: number;
+  shopLastChange: number;
+  shopLastManual: number;
+  mercsLastChange: number;
+  mercsLastManual: number;
+  regenAt: number;
   shopStock: Item[];
   combat: CombatState | null;
   logSeq: number;
@@ -75,8 +89,13 @@ interface GameState {
   showToast: (text: string, kind?: "good" | "bad" | "info") => void;
   clearToast: () => void;
 
+  // city / rest
+  regenTick: () => void;
+  churchHeal: () => void;
+
   // shop
-  refreshStock: () => void;
+  refreshStock: (auto?: boolean) => void;
+  stockTick: () => void;
   buyItem: (itemId: string) => void;
   buyPotion: (id: PotionId, qty?: number) => void;
   sellStone: (g: StoneGrade) => void;
@@ -99,7 +118,8 @@ interface GameState {
   refreshBoard: (auto?: boolean) => void;
   boardTick: () => void;
   turnInQuest: (id: string) => void;
-  rerollMercs: () => void;
+  rerollMercs: (auto?: boolean) => void;
+  mercsTick: () => void;
   hireMerc: (candidateId: string, locationId: string) => void;
   claimMerc: (id: string) => void;
 
@@ -126,6 +146,7 @@ export function newPlayer(
   classId: ClassId = "warrior",
   gender: Gender = "male"
 ): Player {
+  const base = baseStats(1, classId);
   return {
     name,
     classId,
@@ -133,6 +154,8 @@ export function newPlayer(
     level: 1,
     xp: 0,
     gold: 80,
+    hp: base.hp,
+    mana: maxMana(base),
     skillPoints: 1,
     skills: {},
     equipment: {},
@@ -274,9 +297,13 @@ export const useGame = create<GameState>()(
         s.items.forEach((it) => {
           if (Math.random() < 0.2) inv.items.push(it);
         });
+        const st = playerStats(get().player);
         const p = { ...get().player, gold: get().player.gold + keptGold };
         p.xp = Math.max(0, p.xp - Math.round(s.xp * 0.8));
-        set({ inventory: inv, player: p });
+        // очнулся в городе едва живым — дальше только отдых, зелья или церковь
+        p.hp = Math.max(1, Math.round(st.hp * 0.1));
+        p.mana = 0;
+        set({ inventory: inv, player: p, regenAt: Date.now() });
         play("death");
         c = pushLog(c, "death", "Вы пали в бою... Очнувшись в городе, вы обнаружили пропажу 80% добычи.");
         return {
@@ -306,6 +333,11 @@ export const useGame = create<GameState>()(
         mercCandidates: [],
         boardLastChange: 0,
         boardLastManual: 0,
+        shopLastChange: 0,
+        shopLastManual: 0,
+        mercsLastChange: 0,
+        mercsLastManual: 0,
+        regenAt: 0,
         shopStock: [],
         combat: null,
         logSeq: 0,
@@ -334,6 +366,11 @@ export const useGame = create<GameState>()(
             mercCandidates: [genMercCandidate(1), genMercCandidate(1), genMercCandidate(1)],
             boardLastChange: Date.now(),
             boardLastManual: 0,
+            shopLastChange: Date.now(),
+            shopLastManual: 0,
+            mercsLastChange: Date.now(),
+            mercsLastManual: 0,
+            regenAt: Date.now(),
             shopStock: genShopStock(1),
             combat: null,
             logSeq: 0,
@@ -375,10 +412,84 @@ export const useGame = create<GameState>()(
           if (p.sound) play("click");
         },
 
+        // ---------------- city / rest ----------------
+        /** Отдых: 1/300 макс. HP в секунду. Мана — вдвое быстрее. */
+        regenTick: () => {
+          const { started, combat, player, regenAt } = get();
+          if (!started || (combat && combat.phase !== "result")) {
+            if (regenAt !== 0) set({ regenAt: Date.now() });
+            return;
+          }
+          const now = Date.now();
+          const last = regenAt || now;
+          const dt = Math.min((now - last) / 1000, 12 * 60 * 60);
+          if (dt <= 0) return;
+          const st = playerStats(player);
+          const manaMax = maxMana(st);
+          if (player.hp >= st.hp && player.mana >= manaMax) {
+            set({ regenAt: now });
+            return;
+          }
+          set({
+            regenAt: now,
+            player: {
+              ...player,
+              hp: Math.min(st.hp, player.hp + (st.hp / REGEN_PER_SEC_DIV) * dt),
+              mana: Math.min(manaMax, player.mana + ((manaMax / REGEN_PER_SEC_DIV) * dt) / 0.5),
+            },
+          });
+        },
+
+        churchHeal: () => {
+          const { player } = get();
+          const st = playerStats(player);
+          const manaMax = maxMana(st);
+          const price = churchPrice(player, st.hp, manaMax);
+          if (price <= 0) {
+            get().showToast("Жрец улыбается: «Ты и так полон сил»", "info");
+            return;
+          }
+          if (player.gold < price) {
+            get().showToast(`Пожертвование стоит ${price} золота`, "bad");
+            return;
+          }
+          play("heal");
+          set({
+            player: { ...player, gold: player.gold - price, hp: st.hp, mana: manaMax },
+            regenAt: Date.now(),
+          });
+          get().showToast("Свет наполняет тело: здоровье и мана восстановлены", "good");
+        },
+
         // ---------------- shop ----------------
-        refreshStock: () => {
-          set({ shopStock: genShopStock(get().player.level) });
-          play("click");
+        refreshStock: (auto = false) => {
+          const { shopLastManual, player } = get();
+          const now = Date.now();
+          if (!auto) {
+            if (now - shopLastManual < STOCK_MANUAL_MS) {
+              const left = Math.ceil((STOCK_MANUAL_MS - (now - shopLastManual)) / 1000);
+              get().showToast(
+                `Торговец разводит руками: новый товар привезут через ${Math.floor(left / 60)}:${String(
+                  left % 60
+                ).padStart(2, "0")}`,
+                "bad"
+              );
+              return;
+            }
+            play("click");
+          }
+          set({
+            shopStock: genShopStock(player.level),
+            shopLastChange: now,
+            shopLastManual: auto ? shopLastManual : now,
+          });
+          if (auto) get().showToast("Торговец разложил новый товар", "info");
+        },
+
+        stockTick: () => {
+          const { shopLastChange, started } = get();
+          if (!started) return;
+          if (Date.now() - shopLastChange >= STOCK_AUTO_MS) get().refreshStock(true);
         },
 
         buyItem: (itemId) => {
@@ -598,10 +709,38 @@ export const useGame = create<GameState>()(
           get().showToast(`Контракт сдан: +${q.rewardGold} зол, +${q.rewardXp} опыта`, "good");
         },
 
-        rerollMercs: () => {
-          const lvl = get().player.level;
-          play("click");
-          set({ mercCandidates: [genMercCandidate(lvl), genMercCandidate(lvl), genMercCandidate(lvl)] });
+        rerollMercs: (auto = false) => {
+          const { player, mercsLastManual } = get();
+          const now = Date.now();
+          if (!auto) {
+            if (now - mercsLastManual < MERCS_MANUAL_MS) {
+              const left = Math.ceil((MERCS_MANUAL_MS - (now - mercsLastManual)) / 1000);
+              get().showToast(
+                `Свободных клинков больше нет — новые придут через ${Math.floor(left / 60)}:${String(
+                  left % 60
+                ).padStart(2, "0")}`,
+                "bad"
+              );
+              return;
+            }
+            play("click");
+          }
+          set({
+            mercCandidates: [
+              genMercCandidate(player.level),
+              genMercCandidate(player.level),
+              genMercCandidate(player.level),
+            ],
+            mercsLastChange: now,
+            mercsLastManual: auto ? mercsLastManual : now,
+          });
+          if (auto) get().showToast("В гильдию пришли новые наёмники", "info");
+        },
+
+        mercsTick: () => {
+          const { mercsLastChange, started } = get();
+          if (!started) return;
+          if (Date.now() - mercsLastChange >= MERCS_AUTO_MS) get().rerollMercs(true);
         },
 
         hireMerc: (candidateId, locationId) => {
@@ -673,14 +812,21 @@ export const useGame = create<GameState>()(
 
         // ---------------- expedition ----------------
         startExpedition: (locationId) => {
-          const st = playerStats(get().player);
+          const player = get().player;
+          const st = playerStats(player);
+          const manaMax = maxMana(st);
+          const startHp = clamp(Math.round(player.hp), 1, st.hp);
+          if (startHp <= st.hp * 0.15) {
+            get().showToast("Слишком мало здоровья — отдохните или зайдите в церковь", "bad");
+            return;
+          }
           play("click");
           const combat: CombatState = {
             locationId,
             phase: "search",
             monster: null,
-            playerHp: st.hp,
-            playerMana: maxMana(st),
+            playerHp: startHp,
+            playerMana: clamp(Math.round(player.mana), 0, manaMax),
             turn: Math.random() < 0.5 ? "player" : "monster",
             log: [{ id: get().logSeq + 1, kind: "info", text: "Вы входите в лес. Поиск монстра..." }],
             session: { xp: 0, gold: 0, stones: {}, materials: {}, items: [] },
@@ -711,7 +857,17 @@ export const useGame = create<GameState>()(
           Object.entries(s.materials).forEach(([k, n]) => {
             inv.materials[k] = (inv.materials[k] ?? 0) + n;
           });
-          set({ inventory: inv, player: { ...get().player, gold: get().player.gold + s.gold } });
+          // здоровье и мана, с которыми герой вышел из леса, сохраняются
+          set({
+            inventory: inv,
+            player: {
+              ...get().player,
+              gold: get().player.gold + s.gold,
+              hp: c.playerHp,
+              mana: c.playerMana,
+            },
+            regenAt: Date.now(),
+          });
           set({
             combat: {
               ...c,
@@ -730,7 +886,7 @@ export const useGame = create<GameState>()(
 
         closeResult: () => {
           play("click");
-          set({ combat: null, view: "city" });
+          set({ combat: null, view: "city", regenAt: Date.now() });
         },
 
         tick: () => {
@@ -861,10 +1017,42 @@ export const useGame = create<GameState>()(
 
         usePotion: (id) => {
           const c0 = get().combat;
-          const { inventory } = get();
-          if (!c0 || c0.phase === "result" || inventory.potions[id] <= 0) return;
-          const st = playerStats(get().player);
+          const { inventory, player } = get();
+          if (inventory.potions[id] <= 0) return;
+          const st = playerStats(player);
           const def = POTIONS[id];
+
+          // вне боя — пьём в городе, ускоряя отдых
+          if (!c0 || c0.phase === "result") {
+            const manaMax = maxMana(st);
+            if (def.kind === "hp") {
+              const healed = Math.min(st.hp - player.hp, def.power);
+              if (healed < 1) {
+                get().showToast("Здоровье уже полное", "info");
+                return;
+              }
+              play("potion");
+              set({
+                player: { ...player, hp: player.hp + healed },
+                inventory: { ...inventory, potions: { ...inventory.potions, [id]: inventory.potions[id] - 1 } },
+              });
+              get().showToast(`${def.name}: +${Math.round(healed)} HP`, "good");
+            } else {
+              const gained = Math.min(manaMax - player.mana, def.power);
+              if (gained < 1) {
+                get().showToast("Мана уже полная", "info");
+                return;
+              }
+              play("potion");
+              set({
+                player: { ...player, mana: player.mana + gained },
+                inventory: { ...inventory, potions: { ...inventory.potions, [id]: inventory.potions[id] - 1 } },
+              });
+              get().showToast(`${def.name}: +${Math.round(gained)} маны`, "good");
+            }
+            return;
+          }
+
           let c = c0;
           if (def.kind === "hp") {
             const healed = Math.min(st.hp - c.playerHp, def.power);
@@ -986,18 +1174,35 @@ export const useGame = create<GameState>()(
             const parsed = JSON.parse(json);
             const st = parsed?.state ?? parsed;
             if (!st?.player || typeof st.player.level !== "number") throw new Error("bad save");
+            const loaded: Player = { ...newPlayer("Странник"), ...st.player };
+            const loadedStats = playerStats(loaded);
+            loaded.hp = clamp(
+              Number.isFinite(loaded.hp) ? loaded.hp : loadedStats.hp,
+              1,
+              loadedStats.hp
+            );
+            loaded.mana = clamp(
+              Number.isFinite(loaded.mana) ? loaded.mana : maxMana(loadedStats),
+              0,
+              maxMana(loadedStats)
+            );
             set({
               started: true,
               view: "city",
               combat: null,
-              player: { ...newPlayer("Странник"), ...st.player },
+              player: loaded,
               inventory: { ...emptyInventory(), ...st.inventory },
               quests: st.quests ?? [],
               mercs: st.mercs ?? [],
               mercCandidates: st.mercCandidates ?? [],
               boardLastChange: st.boardLastChange ?? Date.now(),
               boardLastManual: st.boardLastManual ?? 0,
-              shopStock: st.shopStock ?? [],
+              shopLastChange: st.shopLastChange ?? Date.now(),
+              shopLastManual: st.shopLastManual ?? 0,
+              mercsLastChange: st.mercsLastChange ?? Date.now(),
+              mercsLastManual: st.mercsLastManual ?? 0,
+              regenAt: Date.now(),
+            shopStock: st.shopStock ?? [],
             });
             play("level");
             get().showToast("Сохранение загружено", "good");
@@ -1057,10 +1262,9 @@ export const useGame = create<GameState>()(
             }
             case "heal": {
               const c = get().combat;
-              if (c) {
-                const st = playerStats(player);
-                set({ combat: { ...c, playerHp: st.hp, playerMana: maxMana(st) } });
-              }
+              const st = playerStats(player);
+              set({ player: { ...player, hp: st.hp, mana: maxMana(st) }, regenAt: Date.now() });
+              if (c) set({ combat: { ...c, playerHp: st.hp, playerMana: maxMana(st) } });
               get().showToast("Полное восстановление", "good");
               break;
             }
@@ -1072,6 +1276,14 @@ export const useGame = create<GameState>()(
             case "board":
               get().refreshBoard(true);
               set({ boardLastManual: 0 });
+              break;
+            case "shop":
+              get().refreshStock(true);
+              set({ shopLastManual: 0 });
+              break;
+            case "timers":
+              set({ boardLastManual: 0, shopLastManual: 0, mercsLastManual: 0 });
+              get().showToast("Все ограничения обновления сброшены", "good");
               break;
             case "class": {
               set({ player: { ...player, classId: payload as ClassId } });
@@ -1087,6 +1299,39 @@ export const useGame = create<GameState>()(
     },
     {
       name: "equilibria-save-v2",
+      version: 3,
+      /** Старые сохранения не знают о здоровье вне боя и новых таймерах */
+      migrate: (persisted: any) => {
+        if (!persisted?.player) return persisted;
+        const p = persisted.player;
+        const st = baseStats(p.level ?? 1, p.classId ?? "warrior");
+        if (typeof p.hp !== "number" || !isFinite(p.hp)) p.hp = st.hp;
+        if (typeof p.mana !== "number" || !isFinite(p.mana)) p.mana = maxMana(st);
+        const now = Date.now();
+        persisted.shopLastChange ??= now;
+        persisted.shopLastManual ??= 0;
+        persisted.mercsLastChange ??= now;
+        persisted.mercsLastManual ??= 0;
+        persisted.regenAt = now;
+        return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const st = playerStats(state.player);
+        const manaMax = maxMana(st);
+        // страховка от рассинхрона после смены класса/снаряжения
+        state.player.hp = clamp(
+          Number.isFinite(state.player.hp) ? state.player.hp : st.hp,
+          0,
+          st.hp
+        );
+        state.player.mana = clamp(
+          Number.isFinite(state.player.mana) ? state.player.mana : manaMax,
+          0,
+          manaMax
+        );
+        state.regenAt = Date.now();
+      },
       partialize: (s) => ({
         started: s.started,
         view: s.view === "combat" ? "city" : s.view,
@@ -1097,6 +1342,11 @@ export const useGame = create<GameState>()(
         mercCandidates: s.mercCandidates,
         boardLastChange: s.boardLastChange,
         boardLastManual: s.boardLastManual,
+        shopLastChange: s.shopLastChange,
+        shopLastManual: s.shopLastManual,
+        mercsLastChange: s.mercsLastChange,
+        mercsLastManual: s.mercsLastManual,
+        regenAt: s.regenAt,
         shopStock: s.shopStock,
       }),
     }
@@ -1104,6 +1354,20 @@ export const useGame = create<GameState>()(
 );
 
 // ---------- helpers ----------
+
+/**
+ * Цена мгновенного исцеления в церкви.
+ * Зависит от максимального здоровья героя: чем он могущественнее, тем дороже чудо.
+ */
+export function churchPrice(player: Player, maxHp: number, manaMax: number): number {
+  const missingHp = Math.max(0, maxHp - player.hp);
+  const missingMana = Math.max(0, manaMax - player.mana);
+  if (missingHp < 1 && missingMana < 1) return 0;
+  const holiness = 1 + (maxHp / 100) * CHURCH_MAXHP_FACTOR;
+  const hpFee = missingHp * CHURCH_PER_HP * holiness;
+  const manaFee = missingMana * 0.6 * holiness;
+  return Math.max(1, Math.round(CHURCH_BASE_FEE * holiness + hpFee + manaFee));
+}
 
 function locationTierOf(materialId: string): number {
   for (const loc of LOCATIONS) {

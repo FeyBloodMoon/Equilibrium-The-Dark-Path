@@ -271,7 +271,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 0,
     minLvl: 1,
     maxLvl: 3,
-    img: "./img/loc-grove.jpg",
+    img: "/img/loc-grove.jpg",
     accent: "#7fd68a",
     monsters: [
       {
@@ -319,7 +319,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 1,
     minLvl: 4,
     maxLvl: 7,
-    img: "./img/loc-swamp.jpg",
+    img: "/img/loc-swamp.jpg",
     accent: "#86b561",
     monsters: [
       {
@@ -367,7 +367,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 2,
     minLvl: 8,
     maxLvl: 12,
-    img: "./img/loc-hills.jpg",
+    img: "/img/loc-hills.jpg",
     accent: "#d9b36c",
     monsters: [
       {
@@ -415,7 +415,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 3,
     minLvl: 13,
     maxLvl: 18,
-    img: "./img/loc-thicket.jpg",
+    img: "/img/loc-thicket.jpg",
     accent: "#a78bfa",
     monsters: [
       {
@@ -463,7 +463,7 @@ export const LOCATIONS: LocationW[] = [
     tier: 4,
     minLvl: 19,
     maxLvl: 25,
-    img: "./img/loc-peaks.jpg",
+    img: "/img/loc-peaks.jpg",
     accent: "#fb923c",
     monsters: [
       {
@@ -514,6 +514,21 @@ export const MERC_DURATION_MIN: number[] = [4, 6, 9, 13, 18];
 
 export const BOARD_AUTO_MS = 5 * 60 * 1000;
 export const BOARD_MANUAL_MS = 10 * 60 * 1000;
+
+/** Ассортимент лавки и кандидаты-наёмники: авто раз в 5 мин, вручную не чаще 5 мин */
+export const STOCK_AUTO_MS = 5 * 60 * 1000;
+export const STOCK_MANUAL_MS = 5 * 60 * 1000;
+export const MERCS_AUTO_MS = 5 * 60 * 1000;
+export const MERCS_MANUAL_MS = 5 * 60 * 1000;
+
+/** Отдых в городе: 1/300 максимального здоровья в секунду (полное восстановление за 5 минут) */
+export const REGEN_PER_SEC_DIV = 300;
+
+/** Цена исцеления в церкви: базовая такса + плата за каждую единицу здоровья */
+export const CHURCH_BASE_FEE = 40;
+export const CHURCH_PER_HP = 1.4;
+/** Надбавка за «святость» — растёт с максимальным запасом здоровья героя */
+export const CHURCH_MAXHP_FACTOR = 0.35;
 
 // ---------- Mercenary names ----------
 

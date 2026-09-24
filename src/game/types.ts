@@ -2,7 +2,7 @@
 
 export type Grade = "F" | "E" | "D" | "C" | "B" | "A" | "S" | "SS" | "SSS";
 
-export type View = "intro" | "city" | "shop" | "guild" | "forest" | "combat";
+export type View = "intro" | "city" | "shop" | "guild" | "church" | "forest" | "combat";
 
 export interface StatBlock {
   dmgMin: number;
@@ -59,6 +59,10 @@ export interface Player {
   level: number;
   xp: number;
   gold: number;
+  /** текущее здоровье вне боя (восстанавливается отдыхом в городе) */
+  hp: number;
+  /** текущая мана вне боя */
+  mana: number;
   skillPoints: number;
   skills: Record<string, number>;
   equipment: Partial<Record<Slot, Item>>;

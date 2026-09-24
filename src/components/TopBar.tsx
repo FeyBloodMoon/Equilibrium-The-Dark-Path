@@ -1,31 +1,30 @@
 import {
   Castle,
+  Church,
   Download,
   Landmark,
   Lock,
   RotateCcw,
   Save,
   Store,
-  Terminal,
   Trees,
   Upload,
   Volume2,
   VolumeX,
-  X,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { CLASSES } from "../game/classes";
-import type { ClassId, Gender } from "../game/classes";
-import { GRADES } from "../game/data";
 import { useGame } from "../game/store";
-import type { Grade, View } from "../game/types";
+import type { View } from "../game/types";
 import { cn } from "../utils/cn";
+import { CheatMenu } from "./CheatMenu";
+import { Modal } from "./Modal";
 import { Gold } from "./ui";
 
 const NAV: { id: View; label: string; icon: typeof Castle }[] = [
   { id: "city", label: "Город", icon: Castle },
   { id: "shop", label: "Магазин", icon: Store },
   { id: "guild", label: "Гильдия", icon: Landmark },
+  { id: "church", label: "Церковь", icon: Church },
   { id: "forest", label: "Лес", icon: Trees },
 ];
 
@@ -156,13 +155,13 @@ export function TopBar() {
       </div>
 
       {confirmReset && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="panel anim-pop max-w-sm p-6 text-center">
+        <Modal onClose={() => setConfirmReset(false)} width="max-w-md">
+          <div className="p-6 text-center">
             <h3 className="font-display text-lg font-bold text-gold-300">Начать заново?</h3>
-            <p className="mt-2 text-sm text-white/55">
+            <p className="mt-2 text-sm leading-relaxed text-white/55">
               Весь прогресс будет утерян. Сначала можно выгрузить сохранение в файл.
             </p>
-            <div className="mt-5 flex justify-center gap-2.5">
+            <div className="mt-5 flex flex-wrap justify-center gap-2.5">
               <button className="btn btn-ghost px-4 py-2 text-sm" onClick={() => setConfirmReset(false)}>
                 Отмена
               </button>
@@ -181,115 +180,11 @@ export function TopBar() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {cheatOpen && <CheatMenu onClose={() => setCheatOpen(false)} />}
     </header>
-  );
-}
-
-function CheatMenu({ onClose }: { onClose: () => void }) {
-  const cheat = useGame((s) => s.cheat);
-  const player = useGame((s) => s.player);
-  const [grade, setGrade] = useState<Grade>("S");
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm sm:items-center">
-      <div className="panel anim-pop w-full max-w-lg overflow-hidden border-emerald-400/30">
-        <div className="flex items-center justify-between border-b border-emerald-400/20 bg-emerald-400/[0.07] px-5 py-3">
-          <div className="flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-emerald-400" />
-            <div>
-              <h3 className="font-display text-sm font-bold text-emerald-300">Консоль отладки</h3>
-              <p className="font-mono2 text-[10px] text-emerald-400/50">
-                /// доступ получен · v2.0
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} className="btn btn-ghost h-8 w-8 rounded-lg p-0">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="grid gap-1.5 p-4 sm:grid-cols-2">
-          <Cheat label="+1 000 золота" onClick={() => cheat("gold", 1000)} />
-          <Cheat label="+25 000 золота" onClick={() => cheat("gold", 25000)} />
-          <Cheat label="+1 уровень" onClick={() => cheat("level", 1)} />
-          <Cheat label="+5 уровней" onClick={() => cheat("level", 5)} />
-          <Cheat label="+5 очков навыков" onClick={() => cheat("skillpoints", 5)} />
-          <Cheat label="Полное восстановление" onClick={() => cheat("heal")} />
-          <Cheat label="+10 зелий каждого вида" onClick={() => cheat("potions", 10)} />
-          <Cheat label="+5 камней всех классов" onClick={() => cheat("stones", 5)} />
-          <Cheat label="Вернуть наёмников (100% надёжн.)" onClick={() => cheat("mercs")} />
-          <Cheat label="Обновить доску заданий" onClick={() => cheat("board")} />
-        </div>
-
-        <div className="border-t border-white/[0.08] px-4 py-3">
-          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-            Выдать комплект снаряжения
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {GRADES.map((g) => (
-              <button
-                key={g}
-                onClick={() => setGrade(g)}
-                className={cn(
-                  "btn rounded-md px-2.5 py-1 text-[11px]",
-                  grade === g ? "btn-gold" : "btn-ghost"
-                )}
-              >
-                {g}
-              </button>
-            ))}
-            <button onClick={() => cheat("gear", { grade })} className="btn btn-gold rounded-md px-3 py-1 text-[11px]">
-              Выдать
-            </button>
-          </div>
-        </div>
-
-        <div className="border-t border-white/[0.08] px-4 py-3">
-          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-white/40">
-            Сменить класс / облик
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {CLASSES.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => cheat("class", c.id as ClassId)}
-                className={cn(
-                  "btn rounded-md px-2.5 py-1 text-[11px]",
-                  player.classId === c.id ? "btn-gold" : "btn-ghost"
-                )}
-              >
-                {c.name}
-              </button>
-            ))}
-            <button
-              onClick={() => cheat("gender", (player.gender === "male" ? "female" : "male") as Gender)}
-              className="btn btn-ghost rounded-md px-2.5 py-1 text-[11px]"
-            >
-              Сменить пол
-            </button>
-          </div>
-        </div>
-
-        <div className="border-t border-white/[0.08] px-4 py-2.5 text-center font-mono2 text-[10px] text-white/25">
-          подсказка: 5 быстрых кликов по гербу
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Cheat({ label, onClick }: { label: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="btn justify-start rounded-lg border border-emerald-400/20 bg-emerald-400/[0.05] px-3 py-2 text-[11px] text-emerald-200 hover:bg-emerald-400/[0.14]"
-    >
-      {label}
-    </button>
   );
 }
 

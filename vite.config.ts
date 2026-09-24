@@ -8,15 +8,9 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// https://vite.dev/config/
 export default defineConfig({
-  base: "/Equilibrium-The-Dark-Path/",
-
-  plugins: [
-    react(),
-    tailwindcss(),
-    viteSingleFile(),
-  ],
-
+  plugins: [react(), tailwindcss(), viteSingleFile()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

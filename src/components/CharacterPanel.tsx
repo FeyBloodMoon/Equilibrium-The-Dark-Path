@@ -1,6 +1,19 @@
-import { Brain, Clover, Droplet, GitBranch, HeartPulse, Shield, Sparkles, Sword, X, Zap } from "lucide-react";
+import {
+  Brain,
+  Clover,
+  Droplet,
+  GitBranch,
+  HeartPulse,
+  Hourglass,
+  Shield,
+  Sparkles,
+  Sword,
+  X,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { getClass } from "../game/classes";
+import { REGEN_PER_SEC_DIV } from "../game/data";
 import { itemName, maxMana, sellableItems, xpForLevel } from "../game/engine";
 import { useExtras, useGame, useStats } from "../game/store";
 import type { Slot } from "../game/types";
@@ -19,14 +32,18 @@ export function CharacterPanel() {
   const player = useGame((s) => s.player);
   const combat = useGame((s) => s.combat);
   const unequip = useGame((s) => s.unequip);
+  const setView = useGame((s) => s.setView);
   const stats = useStats();
   const extras = useExtras();
   const [treeOpen, setTreeOpen] = useState(false);
   const cls = getClass(player.classId);
   const manaMax = maxMana(stats);
-  const hpNow = combat ? combat.playerHp : stats.hp;
-  const manaNow = combat ? combat.playerMana : manaMax;
+  const inCombat = !!combat && combat.phase !== "result";
+  const hpNow = inCombat ? combat!.playerHp : player.hp;
+  const manaNow = inCombat ? combat!.playerMana : player.mana;
   const xpNext = xpForLevel(player.level);
+  const resting = !inCombat && hpNow < stats.hp - 0.5;
+  const restLeft = Math.ceil((stats.hp - hpNow) / (stats.hp / REGEN_PER_SEC_DIV));
 
   return (
     <div className="panel overflow-hidden">
@@ -54,6 +71,22 @@ export function CharacterPanel() {
         <Bar value={hpNow} max={stats.hp} from="#b91c1c" to="#ef4444" label="Здоровье" />
         <Bar value={manaNow} max={manaMax} from="#3730a3" to="#818cf8" label="Мана" />
         <Bar value={player.xp} max={xpNext} from="#92600e" to="#e7bc5e" label="Опыт" height="h-2.5" />
+
+        {resting && (
+          <button
+            onClick={() => setView("church")}
+            className="flex w-full items-center justify-between gap-2 rounded-lg border border-emerald-400/25 bg-emerald-400/[0.06] px-2.5 py-1.5 text-left transition hover:border-emerald-400/50"
+            title="Отдых в городе · перейти в церковь"
+          >
+            <span className="flex items-center gap-1.5 text-[10.5px] text-emerald-300/90">
+              <Hourglass className="h-3 w-3 animate-pulse" />
+              Отдых · +{(stats.hp / REGEN_PER_SEC_DIV).toFixed(1)} HP/сек
+            </span>
+            <span className="font-mono2 text-[10.5px] text-white/60">
+              {Math.floor(restLeft / 60)}:{String(restLeft % 60).padStart(2, "0")}
+            </span>
+          </button>
+        )}
 
         <button
           onClick={() => setTreeOpen(true)}

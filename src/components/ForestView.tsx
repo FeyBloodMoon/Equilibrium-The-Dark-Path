@@ -1,12 +1,17 @@
-import { ChevronRight, Skull, Star, Trees, TriangleAlert } from "lucide-react";
+import { ChevronRight, HeartPulse, Skull, Star, Trees, TriangleAlert } from "lucide-react";
 import { LOCATIONS } from "../game/data";
-import { useGame } from "../game/store";
+import { useGame, useStats } from "../game/store";
 import { cn } from "../utils/cn";
 import { IconByName, SectionTitle } from "./ui";
 
 export function ForestView() {
   const level = useGame((s) => s.player.level);
+  const hp = useGame((s) => s.player.hp);
   const startExpedition = useGame((s) => s.startExpedition);
+  const setView = useGame((s) => s.setView);
+  const stats = useStats();
+  const hpPct = Math.round((hp / stats.hp) * 100);
+  const tooWeak = hp <= stats.hp * 0.15;
 
   return (
     <div className="p-1">
@@ -14,7 +19,34 @@ export function ForestView() {
         icon={Trees}
         title="Проклятый лес"
         sub="Выберите тропу — поход идёт автоматически: герой сам ищет монстров и сражается"
+        right={
+          <span
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px]",
+              tooWeak
+                ? "border-blood-500/40 bg-blood-500/10 text-blood-300"
+                : hpPct < 100
+                  ? "border-amber-400/30 bg-amber-400/[0.08] text-amber-200"
+                  : "border-emerald-400/30 bg-emerald-400/[0.07] text-emerald-300"
+            )}
+          >
+            <HeartPulse className="h-3.5 w-3.5" />
+            {Math.round(hp)}/{stats.hp} HP · {hpPct}%
+          </span>
+        }
       />
+
+      {tooWeak && (
+        <div className="panel anim-fade-up mb-3 flex flex-wrap items-center justify-between gap-3 border-blood-500/30 bg-blood-500/[0.06] p-3.5">
+          <p className="text-[12px] leading-relaxed text-white/65">
+            <b className="text-blood-300">Вы слишком израненны для похода.</b> Отдохните в городе,
+            выпейте зелье или попросите чуда в церкви.
+          </p>
+          <button onClick={() => setView("church")} className="btn btn-gold rounded-lg px-4 py-2 text-[11px]">
+            <HeartPulse className="h-3.5 w-3.5" />В церковь
+          </button>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {LOCATIONS.map((loc, i) => {
           const tooHard = level < loc.minLvl;
@@ -82,6 +114,8 @@ export function ForestView() {
                   </span>
                   <button
                     onClick={() => startExpedition(loc.id)}
+                    disabled={tooWeak}
+                    title={tooWeak ? "Слишком мало здоровья для похода" : undefined}
                     className={cn(
                       "btn rounded-lg px-3.5 py-2 text-[11px] uppercase tracking-wider",
                       tooHard ? "btn-danger" : "btn-gold"

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { ChurchView } from "./components/ChurchView";
 import { CityView } from "./components/CityView";
 import { CombatView } from "./components/CombatView";
 import { CharacterPanel } from "./components/CharacterPanel";
@@ -15,12 +16,26 @@ export default function App() {
   const started = useGame((s) => s.started);
   const view = useGame((s) => s.view);
   const boardTick = useGame((s) => s.boardTick);
+  const stockTick = useGame((s) => s.stockTick);
+  const mercsTick = useGame((s) => s.mercsTick);
+  const regenTick = useGame((s) => s.regenTick);
 
-  // доска заданий обновляется сама каждые 5 минут после последнего изменения
+  // доска, лавка и наёмники обновляются сами раз в 5-10 минут
   useEffect(() => {
-    const t = setInterval(boardTick, 10000);
+    const t = setInterval(() => {
+      boardTick();
+      stockTick();
+      mercsTick();
+    }, 10000);
     return () => clearInterval(t);
-  }, [boardTick]);
+  }, [boardTick, stockTick, mercsTick]);
+
+  // отдых в городе: 1/300 макс. HP в секунду
+  useEffect(() => {
+    const t = setInterval(regenTick, 1000);
+    regenTick();
+    return () => clearInterval(t);
+  }, [regenTick]);
 
   if (!started || view === "intro") {
     return (
@@ -43,6 +58,7 @@ export default function App() {
             {view === "city" && <CityView />}
             {view === "shop" && <ShopView />}
             {view === "guild" && <GuildView />}
+            {view === "church" && <ChurchView />}
             {view === "forest" && <ForestView />}
             {view === "combat" && <CombatView />}
           </section>

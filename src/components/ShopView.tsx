@@ -1,10 +1,33 @@
-import { Dices, FlaskConical, HeartPulse, RefreshCw, ShoppingBag, Sparkles, Store, WandSparkles } from "lucide-react";
-import { POTIONS, POTION_ORDER, STONE_GRADES, STONE_VALUE } from "../game/data";
+import {
+  Dices,
+  FlaskConical,
+  HeartPulse,
+  Lock,
+  RefreshCw,
+  ShoppingBag,
+  Sparkles,
+  Store,
+  WandSparkles,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  POTIONS,
+  POTION_ORDER,
+  STOCK_AUTO_MS,
+  STOCK_MANUAL_MS,
+  STONE_GRADES,
+  STONE_VALUE,
+} from "../game/data";
 import { itemName, sellableItems } from "../game/engine";
 import { useGame } from "../game/store";
 import { cn } from "../utils/cn";
 import { GradeBadge, Gold, SectionTitle } from "./ui";
 import { Empty } from "./InventoryPanel";
+
+function fmtLeft(ms: number) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
 
 export function ShopView() {
   const stock = useGame((s) => s.shopStock);
@@ -13,19 +36,34 @@ export function ShopView() {
   const buyItem = useGame((s) => s.buyItem);
   const buyPotion = useGame((s) => s.buyPotion);
   const refreshStock = useGame((s) => s.refreshStock);
+  const stockTick = useGame((s) => s.stockTick);
+  const shopLastChange = useGame((s) => s.shopLastChange);
+  const shopLastManual = useGame((s) => s.shopLastManual);
   const potions = useGame((s) => s.inventory.potions);
   const stones = useGame((s) => s.inventory.stones);
   const materials = useGame((s) => s.inventory.materials);
   const items = useGame((s) => s.inventory.items);
   const sellAllStones = useGame((s) => s.sellAllStones);
   const sellAllMaterials = useGame((s) => s.sellAllMaterials);
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      setNow(Date.now());
+      stockTick();
+    }, 1000);
+    stockTick();
+    return () => clearInterval(t);
+  }, [stockTick]);
 
   const stoneTotal = STONE_GRADES.reduce((a, g) => a + stones[g] * STONE_VALUE[g], 0);
   const matTotal = Object.entries(materials).length;
+  const manualLeft = STOCK_MANUAL_MS - (now - shopLastManual);
+  const autoLeft = STOCK_AUTO_MS - (now - shopLastChange);
 
   return (
     <div className="vignette relative -m-4 min-h-[calc(100vh-120px)] overflow-hidden rounded-2xl sm:-m-6">
-      <img src="./img/shop.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <img src="/img/shop.jpg" alt="" className="absolute inset-0 h-full w-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/85 via-ink-950/80 to-ink-950/95" />
 
       <div className="relative z-10 p-5 sm:p-8">
@@ -117,10 +155,27 @@ export function ShopView() {
                   <ShoppingBag className="h-4 w-4 text-gold-400" />
                   Оружие и доспехи
                 </div>
-                <button onClick={refreshStock} className="btn btn-ghost rounded-md px-2.5 py-1 text-[10px]">
-                  <RefreshCw className="h-3 w-3" />
-                  Обновить ассортимент
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono2 text-[10px] text-white/35">
+                    новый завоз: {fmtLeft(autoLeft)}
+                  </span>
+                  <button
+                    onClick={() => refreshStock(false)}
+                    disabled={manualLeft > 0}
+                    title={
+                      manualLeft > 0
+                        ? `Торговец обновит товар через ${fmtLeft(manualLeft)}`
+                        : "Обновить ассортимент"
+                    }
+                    className={cn(
+                      "btn h-7 rounded-md px-2.5 text-[10px]",
+                      manualLeft > 0 ? "btn-ghost" : "btn-gold"
+                    )}
+                  >
+                    {manualLeft > 0 ? <Lock className="h-3 w-3" /> : <RefreshCw className="h-3 w-3" />}
+                    {manualLeft > 0 ? fmtLeft(manualLeft) : "Обновить"}
+                  </button>
+                </div>
               </div>
               {stock.length === 0 ? (
                 <Empty icon={ShoppingBag} text="Полки пусты. Нажмите «Обновить ассортимент»." />

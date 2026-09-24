@@ -22,6 +22,7 @@ import type { Floater, LogKind } from "../game/types";
 import { cn } from "../utils/cn";
 import { Bar, GradeBadge, IconByName, SPELL_ICONS } from "./ui";
 import { ClassPortrait } from "./ClassPortrait";
+import { Modal } from "./Modal";
 
 const LOG_STYLE: Record<LogKind, string> = {
   info: "text-white/50",
@@ -119,13 +120,14 @@ function CombatHeader() {
       </div>
 
       {confirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="panel anim-pop max-w-sm p-6 text-center">
+        <Modal onClose={() => setConfirm(false)} width="max-w-md">
+          <div className="p-6 text-center">
             <h3 className="font-display text-lg font-bold text-gold-300">Прервать охоту?</h3>
-            <p className="mt-2 text-sm text-white/55">
-              Вы вернётесь в город и сохраните всю добычу текущего похода.
+            <p className="mt-2 text-sm leading-relaxed text-white/55">
+              Вы вернётесь в город со всей добычей похода. Раны останутся — их залечит отдых,
+              зелья или церковь.
             </p>
-            <div className="mt-5 flex justify-center gap-3">
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
               <button className="btn btn-ghost px-4 py-2 text-sm" onClick={() => setConfirm(false)}>
                 Остаться
               </button>
@@ -140,7 +142,7 @@ function CombatHeader() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
@@ -574,8 +576,9 @@ function ResultOverlay() {
           <button onClick={closeResult} className="btn btn-gold w-full px-6 py-3 text-sm uppercase tracking-[0.2em]">
             Вернуться в город
           </button>
-          <p className="mt-2 text-center text-[10.5px] text-white/40">
-            В городе здоровье и мана полностью восстановятся
+          <p className="mt-2 text-center text-[10.5px] leading-relaxed text-white/40">
+            Раны не заживают сами мгновенно: в городе идёт отдых (1/300 HP в секунду),
+            зелья и церковь ускорят возвращение в строй
           </p>
         </div>
       </div>
